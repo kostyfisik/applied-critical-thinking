@@ -10,7 +10,12 @@ def get_analytical_solution(max_x, max_y, total_points_x, total_points_y):
     analytical_solution = np.zeros((total_points_x, total_points_y))
     for k in range(total_points_x):
         for i in range(total_points_y):
-            analytical_solution[k, i] = (np.sin(x[k]) * np.sinh(y[i])) / (np.sinh(max_y) * np.sin(max_x))
+            analytical_solution[k, i] = \
+                (
+                        np.sin(x[k]) * np.sinh(y[i])
+                 ) / (
+                        np.sinh(max_y) * np.sin(max_x)
+                )
     return analytical_solution
 
 
@@ -82,26 +87,32 @@ def get_numerical_solution(top_boundary, right_boundary, step_ratio):
 
     rhs_vector = get_rhs_vector(boundary_x, boundary_y, step_ratio)
 
-    linear_system_solution, exit_code = bicgstab( linear_system_matrix, rhs_vector, tol=1e-14)
+    linear_system_solution, exit_code = \
+        bicgstab( linear_system_matrix, rhs_vector, tol=1e-14)
 
     inner_shape = (len(boundary_x), len(boundary_y))
-    numerical_solution[1:-1, 1:-1] = np.reshape(linear_system_solution, inner_shape)
+    numerical_solution[1:-1, 1:-1] = \
+        np.reshape(linear_system_solution, inner_shape)
     return numerical_solution
 
 
 def get_solution(max_x, max_y, total_points_x, total_points_y):
-    analytical = get_analytical_solution(max_x, max_y, total_points_x, total_points_y)
+    analytical = get_analytical_solution(max_x, max_y,
+                                         total_points_x, total_points_y)
 
     top_boundary = analytical[:, -1]
     right_boundary = analytical[-1, :]
-    step_ratio, step_x, step_y = get_step(max_x, max_y, total_points_x, total_points_y)
+    step_ratio, step_x, step_y = get_step(max_x, max_y,
+                                          total_points_x, total_points_y)
 
-    numerical = get_numerical_solution(top_boundary, right_boundary, step_ratio)
+    numerical = get_numerical_solution(top_boundary, right_boundary,
+                                       step_ratio)
     solution_error = np.abs(numerical - analytical)
     error_rms = (
                     np.sum(
                         np.power(
-                            solution_error[1:-1, 1:-1],  # use only computed part for error estimate
+                            # use only computed part for error estimate
+                            solution_error[1:-1, 1:-1],
                             2
                         )
                     ) / (
