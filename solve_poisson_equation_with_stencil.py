@@ -18,14 +18,15 @@ def get_linear_system_matrix(mesh_points_x, mesh_points_y, mesh_step_ratio):
     matrix = np.zeros((matrix_size, matrix_size))
     for k in range(matrix_size):
         for i in range(matrix_size):
+            # origin for all finite differences
             if k == i:
                 matrix[k, i] = -2 * (1 + mesh_step_ratio)
-
+            # left and right finite differences
             if k == i + 1 and k % mesh_points_y != 0:
                 matrix[k, i] = mesh_step_ratio
-            if k == i - 1 and i % mesh_points_y != 0:
+            if k == i - 1 and (k+1) % mesh_points_y != 0:
                 matrix[k, i] = mesh_step_ratio
-
+            # bottom and top finite differences
             if k == i + mesh_points_y or k == i - mesh_points_y:
                 matrix[k, i] = 1
 
