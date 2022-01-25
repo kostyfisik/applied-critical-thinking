@@ -76,6 +76,7 @@ def get_numerical_solution(top_boundary, right_boundary, step_ratio):
     numerical_solution[1:-1, 1:-1] = np.reshape(linear_system_solution, inner_shape)
     return numerical_solution
 
+
 def get_solution(max_x, max_y, total_points_x, total_points_y):
     analytical = get_analytical_solution(max_x, max_y, total_points_x, total_points_y)
 
@@ -111,7 +112,7 @@ if __name__ == '__main__':
     titles = ['Numerical', 'Analytical', 'abs(error)']
 
     fig, axs = plt.subplots(figsize=(10, 5), ncols=len(data))
-    for i in range (len(data)):
+    for i in range(len(data)):
         numerical_plot = axs[i].imshow(data[i])
         fig.colorbar(numerical_plot, ax=axs[i])
         axs[i].set_title(titles[i])
