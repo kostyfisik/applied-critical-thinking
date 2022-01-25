@@ -2,7 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import bicgstab
-
+from scipy.linalg import solve
+is_sparse = True
+# is_sparse = False
 
 def get_analytical_solution(max_x, max_y, total_points_x, total_points_y):
     x = np.linspace(0, max_x, total_points_x)
@@ -21,7 +23,7 @@ def get_analytical_solution(max_x, max_y, total_points_x, total_points_y):
 
 def get_linear_system_matrix(mesh_points_x, mesh_points_y, mesh_step_ratio):
     matrix_size = mesh_points_x * mesh_points_y
-    matrix = lil_matrix((matrix_size, matrix_size))
+    matrix = lil_matrix((matrix_size, matrix_size)) if is_sparse else np.zeros((matrix_size, matrix_size))
     for k in range(matrix_size):
         # origin for all finite differences
         matrix[k, k] = -2 * (1 + mesh_step_ratio)
@@ -44,7 +46,7 @@ def get_linear_system_matrix(mesh_points_x, mesh_points_y, mesh_step_ratio):
         # top finite differences
         matrix[k - mesh_points_y, k] = 1
 
-    return matrix.tocsc()
+    return matrix.tocsc() if is_sparse else matrix
 
 
 
@@ -87,8 +89,11 @@ def get_numerical_solution(top_boundary, right_boundary, step_ratio):
 
     rhs_vector = get_rhs_vector(boundary_x, boundary_y, step_ratio)
 
-    linear_system_solution, exit_code = \
-        bicgstab( linear_system_matrix, rhs_vector, tol=1e-14)
+    if is_sparse:
+        linear_system_solution, exit_code = \
+            bicgstab( linear_system_matrix, rhs_vector, tol=1e-14)
+    else:
+        linear_system_solution = solve( linear_system_matrix, rhs_vector)
 
     inner_shape = (len(boundary_x), len(boundary_y))
     numerical_solution[1:-1, 1:-1] = \
