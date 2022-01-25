@@ -1,98 +1,96 @@
-import numpy
 import matplotlib.pyplot as plt
-import math
+import numpy as np
 from scipy.linalg import solve
 
-#Here we choose our boundaries a and b
-a = 5
-b = 20
+def get_linear_system_matrix(mesh_points_x, mesh_points_y, mesh_step_ratio):
+    matrix_size = mesh_points_x * mesh_points_y
+    matrix = np.zeros((matrix_size, matrix_size))
+    for k in range(matrix_size):
+        for i in range(matrix_size):
+            if k == i:
+                matrix[k, i] = -2 * (1 + mesh_step_ratio)
+            if k == i + 1 and k % mesh_points_y != 0:
+                matrix[k, i] = mesh_step_ratio
+            if k == i - 1 and i % mesh_points_y != 0:
+                matrix[k, i] = mesh_step_ratio
 
-#Here we decide into how many segments we divide along x and y axis
-n = 50 #For x
-m = 50 #For y
+            if k == i + mesh_points_y  or k == i - mesh_points_y :
+                matrix[k, i] = 1
+    return matrix
 
-step_x = a / (n+1) #Length of a segment along x
-step_y = b / (m+1) #Length of a segment along y
-step_ratio = (step_y/step_x)**2 #This we will need later
+def get_numerical_solution(max_x, max_y, total_points_x, total_points_y):
+    total_shape = (total_points_x, total_points_y)
 
+    inner_points_x = total_points_x - 2
+    inner_points_y = total_points_y - 2
+    all_inner_points = inner_points_x * inner_points_y
+    inner_shape = (inner_points_x, inner_points_y)
 
-x=numpy.linspace(0, a, n+1)
-y=numpy.linspace(0, b, m+1)
+    step_x = max_x / (total_points_x - 1)
+    step_y = max_y / (total_points_y - 1)
+    step_ratio = (step_x / step_y) ** 2
 
-#Boundary conditions
-Solution_matrix=numpy.zeros(((n+1), (m+1)))
+    x = np.linspace(0, max_x, total_points_x)
+    y = np.linspace(0, max_y, total_points_y)
+    # Boundary conditions
+    total_boundary_x = np.sin(x) / np.sin(max_x)
+    total_boundary_y = np.sinh(y) / np.sinh(max_y)
 
-Solution_matrix[:, m] = numpy.sin(x) / numpy.sin(a) 
-Solution_matrix[n, :] = numpy.sinh(y) / numpy.sinh(b) 
-
-#Here we make A matrix
-Coefficient_matrix=numpy.zeros(((m-1)*(n-1), (m-1)*(n-1)))
-        
-for i in range ((m-1)*(n-2)):
-    Coefficient_matrix[i, i+(m-1)] = step_ratio
-for i in range ((m-1)*(n-2)):
-    Coefficient_matrix[i+(m-1), i] = step_ratio
-    
-for i in range ((n-1)*(m-1)):
-    Coefficient_matrix[i, i] = -2*(1+step_ratio)
-for i in range ((n-1)*(m-1)-1):
-    Coefficient_matrix[i, i+1] = 1
-for i in range ((n-1)*(m-1)-1):
-    Coefficient_matrix[i+1, i] = 1
-
-for i in range (n-1-1):
-    Coefficient_matrix[(i+1)*(m-1)-1, (i+1)*(m-1)] = 0
-    Coefficient_matrix[(i+1)*(m-1), (i+1)*(m-1)-1] = 0
-    
-    
-#Here we make F vector 
-Boundaries_vector=numpy.zeros(((n-1)*(m-1)))
-Boundaries_vector[0] = - step_ratio*Solution_matrix[0, 1] - Solution_matrix[1, 0]
-Boundaries_vector[m-1-1] = -step_ratio*Solution_matrix[0, m-1] - Solution_matrix[1, (m-1)+1]
-Boundaries_vector[(m-1)*((n-1)-1)] = - Solution_matrix[n-1, 0] - step_ratio*Solution_matrix[(n-1)+1, 1]
-Boundaries_vector[-1] = - step_ratio*Solution_matrix[(n-1)+1, m-1] - Solution_matrix[(n-1), (m-1)+1]
-
-for i in range (m-1-2):
-    Boundaries_vector[i+1] = - step_ratio*Solution_matrix[0, i+2]
-    Boundaries_vector[i+1+(m-1)*(n-1-1)] = - step_ratio*Solution_matrix [(n-1)+1, i+2]
-    
-for i in range (n-1-2):
-    Boundaries_vector[(i+1)*(m-1)] = - Solution_matrix[i+2, 0]
-    Boundaries_vector[(i+1)*(m-1)+(m-1)-1] = - Solution_matrix[i+2, (m-1)+1]
-
-#Here we find vector with our answers
-Answers_vector = solve(Coefficient_matrix, Boundaries_vector)
-
-#Here we translate vector into matrix
-for i in range (n-1):
-    for j in range (m-1):
-        Solution_matrix[i+1, j+1] = Answers_vector[i*(m-1)+j]
+    inner_boundary_x = total_boundary_x[1:-1]
+    inner_boundary_y = total_boundary_y[1:-1]
 
 
-Analytical_solution = numpy.zeros((n+1, m+1))
-Error_matrix =numpy.zeros((n+1, m+1))
+    linear_system_matrix = get_linear_system_matrix(inner_points_x, inner_points_y, step_ratio)
+    rhs_vector = np.zeros(all_inner_points)
+    for k in range(all_inner_points):
+        if (k + 1) % inner_points_y == 0:
+            rhs_vector[k] += -step_ratio * inner_boundary_x[int(k / inner_points_y)]
+        if k > all_inner_points - inner_points_y - 1:
+            rhs_vector[k] += -inner_boundary_y[k % inner_points_y]
 
-#In this cycle we will find error
-for i in range(n+1):
-    for j in range(m+1):
-        
-        #Analytical solution
-        Analytical_solution[i, j] = (math.sin(x[i]) * math.sinh(y[j])) / (math.sinh(b) * math.sin(a))
-        
-        #Finding difference between analytical and numerical solutions
-        Error_matrix[i, j] = Solution_matrix[i, j] - Analytical_solution[i, j]
-        
-        #The highest error
-        Error_matrix = numpy.absolute(Error_matrix)
-                       
-fig, (ax1, ax2, ax3) = plt.subplots(figsize=(10, 5), ncols=3)
-Numeric = ax1.imshow(Solution_matrix)
-fig.colorbar(Numeric, ax=ax1)
-ax1.set_title('Numerical')
-Analytic = ax2.imshow(Analytical_solution)
-fig.colorbar(Analytic, ax=ax2)
-ax2.set_title('Analytical')
-Error = ax3.imshow(Error_matrix)
-fig.colorbar(Error, ax=ax3)
-ax3.set_title('Error')
-plt.show()
+    numerical_solution = np.zeros(total_shape)
+    numerical_solution[:, -1] = total_boundary_x
+    numerical_solution[-1, :] = total_boundary_y
+
+    linear_system_solution = solve(linear_system_matrix, rhs_vector)
+
+    numerical_solution[1:-1, 1:-1] = np.reshape(linear_system_solution, inner_shape)
+    return  numerical_solution
+
+
+def get_analytical_solution(max_x, max_y, total_points_x, total_points_y):
+    x = np.linspace(0, max_x, total_points_x)
+    y = np.linspace(0, max_y, total_points_y)
+    analytical_solution = np.zeros((total_points_x, total_points_y))
+    for k in range(total_points_x):
+        for i in range(total_points_y):
+            analytical_solution[k, i] = (np.sin(x[k]) * np.sinh(y[i])) / (np.sinh(max_y) * np.sin(max_x))
+    return analytical_solution
+
+
+
+if __name__ == '__main__':
+
+    max_x = 5
+    max_y = 4
+    total_points_x = 25
+    total_points_y = 15
+
+    numerical = get_numerical_solution(max_x, max_y, total_points_x, total_points_y)
+    analytical = get_analytical_solution(max_x, max_y, total_points_x, total_points_y)
+    solution_error = np.abs(numerical - analytical)
+
+    fig, (ax1, ax2, ax3) = plt.subplots(figsize=(10, 5), ncols=3)
+
+    numerical_plot = ax1.imshow(numerical)
+    fig.colorbar(numerical_plot, ax=ax1)
+    ax1.set_title('Numerical')
+
+    analytical_plot = ax2.imshow(analytical)
+    fig.colorbar(analytical_plot, ax=ax2)
+    ax2.set_title('Analytical')
+
+    error_plot = ax3.imshow(solution_error)
+    fig.colorbar(error_plot, ax=ax3)
+    ax3.set_title('abs(error)')
+    plt.show()
