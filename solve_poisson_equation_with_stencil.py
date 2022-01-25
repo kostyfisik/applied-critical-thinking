@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.linalg import solve
+from scipy.sparse import lil_matrix
+from scipy.sparse.linalg import bicgstab
 
 
 def get_analytical_solution(max_x, max_y, total_points_x, total_points_y):
@@ -15,38 +16,47 @@ def get_analytical_solution(max_x, max_y, total_points_x, total_points_y):
 
 def get_linear_system_matrix(mesh_points_x, mesh_points_y, mesh_step_ratio):
     matrix_size = mesh_points_x * mesh_points_y
-    matrix = np.zeros((matrix_size, matrix_size))
+    matrix = lil_matrix((matrix_size, matrix_size))
     for k in range(matrix_size):
-        for i in range(matrix_size):
-            # origin for all finite differences
-            if k == i:
-                matrix[k, i] = -2 * (1 + mesh_step_ratio)
-            # left and right finite differences
-            if k == i + 1 and k % mesh_points_y != 0:
-                matrix[k, i] = mesh_step_ratio
-            if k == i - 1 and (k+1) % mesh_points_y != 0:
-                matrix[k, i] = mesh_step_ratio
-            # bottom and top finite differences
-            if k == i + mesh_points_y or k == i - mesh_points_y:
-                matrix[k, i] = 1
+        # origin for all finite differences
+        matrix[k, k] = -2 * (1 + mesh_step_ratio)
 
-    return matrix
+    for k in range(matrix_size-1):
+        # left finite differences
+        if (k+1) % mesh_points_y != 0:
+            matrix[k+1, k] = mesh_step_ratio
+
+    for k in range(1,matrix_size):
+        # right finite differences
+        if k % mesh_points_y != 0:
+            matrix[k - 1, k] = mesh_step_ratio
+
+    for k in range(matrix_size - mesh_points_y):
+        # bottom finite differences
+        matrix[k + mesh_points_y, k] = 1
+
+    for k in range(mesh_points_y, matrix_size):
+        # top finite differences
+        matrix[k - mesh_points_y, k] = 1
+
+    return matrix.tocsc()
+
 
 
 def get_rhs_vector(boundary_x, boundary_y, step_ratio):
-    points_x = len(boundary_x)
-    points_y = len(boundary_y)
-    all_points = points_x * points_y
-    rhs_vector = np.zeros(all_points)
-    for k in range(all_points):
-        if (k + 1) % points_y == 0:
-            rhs_vector[k] += -step_ratio * boundary_x[int(k / points_y)]
-        if k > all_points - points_y - 1:
-            rhs_vector[k] += -boundary_y[k % points_y]
+    mesh_points_x = len(boundary_x)
+    mesh_points_y = len(boundary_y)
+    all_mesh_points = mesh_points_x * mesh_points_y
+    rhs_vector = np.zeros(all_mesh_points)
+    for k in range(all_mesh_points):
+        if (k + 1) % mesh_points_y == 0:
+            rhs_vector[k] += -step_ratio * boundary_x[int(k / mesh_points_y)]
+        if k > all_mesh_points - mesh_points_y - 1:
+            rhs_vector[k] += -boundary_y[k % mesh_points_y]
     return rhs_vector
 
 
-def initilize_with_boundary_conditions(top_boundary, right_boundary):
+def initialize_with_boundary_conditions(top_boundary, right_boundary):
     numerical_solution = np.zeros((len(top_boundary), len(right_boundary)))
     numerical_solution[:, -1] = top_boundary
     numerical_solution[-1, :] = right_boundary
@@ -62,16 +72,17 @@ def get_step(max_x, max_y, total_points_x, total_points_y):
     return step_ratio, step_y, step_y
 
 
+
 def get_numerical_solution(top_boundary, right_boundary, step_ratio):
     numerical_solution, boundary_x, boundary_y = \
-        initilize_with_boundary_conditions(top_boundary, right_boundary)
+        initialize_with_boundary_conditions(top_boundary, right_boundary)
 
     linear_system_matrix = \
         get_linear_system_matrix(len(boundary_x), len(boundary_y), step_ratio)
 
     rhs_vector = get_rhs_vector(boundary_x, boundary_y, step_ratio)
 
-    linear_system_solution = solve(linear_system_matrix, rhs_vector)
+    linear_system_solution, exit_code = bicgstab( linear_system_matrix, rhs_vector, tol=1e-14)
 
     inner_shape = (len(boundary_x), len(boundary_y))
     numerical_solution[1:-1, 1:-1] = np.reshape(linear_system_solution, inner_shape)

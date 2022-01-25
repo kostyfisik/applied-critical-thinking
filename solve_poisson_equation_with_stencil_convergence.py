@@ -5,7 +5,7 @@ from solve_poisson_equation_with_stencil import get_solution
 max_x = 1
 max_y = 1
 
-iterations = 6
+iterations = 8
 error = []
 step = []
 all_points = []
