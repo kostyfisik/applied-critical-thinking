@@ -3,6 +3,8 @@ import numpy as np
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import bicgstab
 from scipy.linalg import solve
+# is_inner_for = True
+is_inner_for = False
 is_sparse = True
 # is_sparse = False
 
@@ -19,6 +21,26 @@ def get_analytical_solution(max_x, max_y, total_points_x, total_points_y):
                         np.sinh(max_y) * np.sin(max_x)
                 )
     return analytical_solution
+
+
+def get_linear_system_matrix_slow(mesh_points_x, mesh_points_y, mesh_step_ratio):
+    matrix_size = mesh_points_x * mesh_points_y
+    matrix = np.zeros((matrix_size, matrix_size))
+    for k in range(matrix_size):
+        for i in range(matrix_size):
+            # origin for all finite differences
+            if k == i:
+                matrix[k, i] = -2 * (1 + mesh_step_ratio)
+            # left and right finite differences
+            if k == i + 1 and k % mesh_points_y != 0:
+                matrix[k, i] = mesh_step_ratio
+            if k == i - 1 and (k+1) % mesh_points_y != 0:
+                matrix[k, i] = mesh_step_ratio
+            # bottom and top finite differences
+            if k == i + mesh_points_y or k == i - mesh_points_y:
+                matrix[k, i] = 1
+
+    return matrix
 
 
 def get_linear_system_matrix(mesh_points_x, mesh_points_y, mesh_step_ratio):
@@ -84,8 +106,12 @@ def get_numerical_solution(top_boundary, right_boundary, step_ratio):
     numerical_solution, boundary_x, boundary_y = \
         initialize_with_boundary_conditions(top_boundary, right_boundary)
 
-    linear_system_matrix = \
-        get_linear_system_matrix(len(boundary_x), len(boundary_y), step_ratio)
+    if is_inner_for:
+        linear_system_matrix = \
+            get_linear_system_matrix_slow(len(boundary_x), len(boundary_y), step_ratio)
+    else:
+        linear_system_matrix = \
+            get_linear_system_matrix(len(boundary_x), len(boundary_y), step_ratio)
 
     rhs_vector = get_rhs_vector(boundary_x, boundary_y, step_ratio)
 
